@@ -17,7 +17,10 @@ func start() error {
 	client := go_coinmarketcap.NewMarketCapClient()
 	pointRepoSql := point_repo_sql.NewPointRepoSql(nil)
 	cryptocurrencyServiceImpl := listing_service_impl.NewCryptocurrencyServiceImpl(client, pointRepoSql)
-	listing, err := cryptocurrencyServiceImpl.Listing(ctx, listing_service_impl.ListingRequest{Limit: 100})
+	listing, err := cryptocurrencyServiceImpl.Listing(ctx, listing_service_impl.ListingRequest{
+		Limit:  100,
+		SortBy: listing_service_impl.CurrentAveragePriceDifference,
+	})
 	if err != nil {
 		return fmt.Errorf("cryptocurrency service impl: %w", err)
 	}
@@ -42,6 +45,7 @@ func start() error {
 		fmt.Println("Name:", coin.Name)
 		fmt.Println("Price:", coin.Price)
 		fmt.Println("Average price:", coin.AveragePrice)
+		fmt.Println("Rank:", coin.Rank)
 		fmt.Println(plot)
 		fmt.Println()
 	}

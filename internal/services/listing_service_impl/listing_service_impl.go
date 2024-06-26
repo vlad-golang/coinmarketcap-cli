@@ -3,6 +3,7 @@ package listing_service_impl
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"golang.org/x/sync/errgroup"
 
@@ -17,8 +18,17 @@ type CryptocurrencyServiceImpl struct {
 	pointRepo           *point_repo_sql.PointRepoSql
 }
 
+type ListingRequestSortBy string
+
+const (
+	SortByAveragePrice            ListingRequestSortBy = "average_price"
+	CurrentAveragePriceDifference                      = "currentAveragePriceDifference"
+)
+
 type ListingRequest struct {
-	Limit int // Limit Количество монет
+	Limit      int // Limit Количество монет
+	SortBy     ListingRequestSortBy
+	IsDescSort bool
 }
 
 // Coin монета
@@ -27,6 +37,7 @@ type Coin struct {
 	Price        float64   // Price текущая цена
 	Prices       []float64 // Prices история цен
 	AveragePrice float64   // AveragePrice средняя цена
+	Rank         int
 }
 
 type ListingResponse struct {
@@ -74,12 +85,23 @@ func (c *CryptocurrencyServiceImpl) Listing(ctx context.Context, req ListingRequ
 			}
 
 			avg := sum / float64(len(points))
-			coins[i] = Coin{coin.Name, usdQuote.Price, prices, avg}
+			coins[i] = Coin{coin.Name, usdQuote.Price, prices, avg, coin.CMCRank}
 			return nil
 		})
 	}
 	if err = wg.Wait(); err != nil {
 		return ListingResponse{}, fmt.Errorf("wg wait: %w", err)
+	}
+
+	switch req.SortBy {
+	case CurrentAveragePriceDifference:
+		sort.Slice(coins, func(i, j int) bool {
+			return coins[i].Price-coins[i].AveragePrice < coins[j].Price-coins[j].AveragePrice
+		})
+	case SortByAveragePrice:
+		sort.Slice(coins, func(i, j int) bool {
+			return coins[i].AveragePrice < coins[j].AveragePrice
+		})
 	}
 
 	return ListingResponse{
