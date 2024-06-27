@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/guptarohit/asciigraph"
+	"github.com/jedib0t/go-pretty/v6/table"
 
 	"github.com/vlad-golang/coinmarketcap-cli/internal/repo/point_repo_sql"
 	"github.com/vlad-golang/coinmarketcap-cli/internal/services/listing_service_impl"
@@ -24,31 +26,43 @@ func start() error {
 	if err != nil {
 		return fmt.Errorf("cryptocurrency service impl: %w", err)
 	}
-
+	tableWriter := table.NewWriter()
+	tableWriter.SetStyle(table.StyleLight)
+	tableWriter.AppendHeader(table.Row{
+		"#",
+		"Name",
+		"Price $",
+		"Avg $",
+		"Min $",
+		"Max $",
+		"1h %",
+		"All %",
+		"Created",
+		"All chart",
+	})
 	for _, coin := range listing.Coins {
-		avgPoints := make([]float64, 0, len(coin.Prices))
-		for range coin.Prices {
-			avgPoints = append(avgPoints, coin.AveragePrice)
-		}
-
-		plot := asciigraph.PlotMany(
-			[][]float64{
-				coin.Prices,
-				avgPoints,
-			},
-			asciigraph.Height(10),
-			asciigraph.Width(50),
-			asciigraph.Caption(coin.Name),
+		plot := asciigraph.Plot(
+			coin.Prices,
+			asciigraph.Height(2),
+			asciigraph.Width(10),
 			asciigraph.SeriesColors(asciigraph.Green, asciigraph.Red),
-			asciigraph.SeriesLegends("Price", "Average"),
 		)
-		fmt.Println("Name:", coin.Name)
-		fmt.Println("Price:", coin.Price)
-		fmt.Println("Average price:", coin.AveragePrice)
-		fmt.Println("Rank:", coin.Rank)
-		fmt.Println(plot)
-		fmt.Println()
+
+		tableWriter.AppendRow(table.Row{
+			coin.Rank,
+			coin.Name,
+			fmt.Sprintf("%.2f", coin.Price),
+			fmt.Sprintf("%.2f", coin.AveragePrice),
+			fmt.Sprintf("%.2f", coin.MinPrice),
+			fmt.Sprintf("%.2f", coin.MaxPrice),
+			fmt.Sprintf("%.2f", coin.PercentChange1h),
+			fmt.Sprintf("%.2f", coin.PercentageDifference),
+			coin.Created.Format(time.DateOnly),
+			plot,
+		})
+
 	}
+	fmt.Println(tableWriter.Render())
 
 	return nil
 }
